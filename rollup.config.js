@@ -4,13 +4,18 @@ import babel from 'rollup-plugin-babel'
 import resolve from 'rollup-plugin-node-resolve'
 import json from 'rollup-plugin-json'
 import { sizeSnapshot } from 'rollup-plugin-size-snapshot'
-import compiler from '@ampproject/rollup-plugin-closure-compiler'
+// import compiler from '@ampproject/rollup-plugin-closure-compiler'
 import commonjs from '@rollup/plugin-commonjs'
+import replace from '@rollup/plugin-replace'
 
 const root = process.platform === 'win32' ? path.resolve('/') : '/'
 const external = (id) => {
   //if (id.startsWith('react-reconciler')) return false
-  return !id.startsWith('.') && !id.startsWith(root)
+  const externalLibs = ['react', 'three']
+  const res = externalLibs.includes(id)
+  // const res = !id.startsWith('.') && !id.startsWith(root) && !builtinLibs.includes(id)
+  // console.log('external:', id, '-', res)
+  return res
 }
 const extensions = ['.js', '.jsx', '.ts', '.tsx', '.json']
 
@@ -62,11 +67,20 @@ function createConfig(entry, out, closure = true) {
   return [
     {
       input: `./src/${entry}`,
-      output: { file: `dist/${out}.js`, format: 'esm' },
+      output: {
+        file: `dist/${out}.js`,
+        format: 'umd',
+        name: 'RFiber',
+        globals: { react: 'React', three: 'THREE' },
+      },
       external,
       plugins: [
         json(),
         commonjs(),
+        replace({
+          // alternatively, one could pass process.env.NODE_ENV or 'development` to stringify
+          'process.env.NODE_ENV': JSON.stringify('production'),
+        }),
         babel(getBabelOptions({ useESModules: true }, '>1%, not dead, not ie 11, not op_mini all')),
         resolve({ extensions }),
         targetTypings(entry, out),
@@ -79,27 +93,27 @@ function createConfig(entry, out, closure = true) {
         sizeSnapshot(),
       ],
     },
-    {
-      input: `./src/${entry}`,
-      output: { file: `dist/${out}.cjs.js`, format: 'cjs' },
-      external,
-      plugins: [
-        json(),
-        commonjs(),
-        babel(getBabelOptions({ useESModules: false })),
-        sizeSnapshot(),
-        resolve({ extensions }),
-        targetTypings(entry, out),
-      ],
-    },
+    // {
+    //   input: `./src/${entry}`,
+    //   output: { file: `dist/${out}.cjs.js`, format: 'cjs' },
+    //   external,
+    //   plugins: [
+    //     json(),
+    //     commonjs(),
+    //     babel(getBabelOptions({ useESModules: false })),
+    //     sizeSnapshot(),
+    //     resolve({ extensions }),
+    //     targetTypings(entry, out),
+    //   ],
+    // },
   ]
 }
 
 export default [
   ...createConfig('targets/web', 'web'),
-  ...createConfig('targets/svg', 'svg'),
-  ...createConfig('targets/css2d', 'css2d'),
-  ...createConfig('targets/css3d', 'css3d'),
-  ...createConfig('targets/native/index', 'native', false),
-  ...createConfig('components', 'components', false),
+  // ...createConfig('targets/svg', 'svg'),
+  // ...createConfig('targets/css2d', 'css2d'),
+  // ...createConfig('targets/css3d', 'css3d'),
+  // ...createConfig('targets/native/index', 'native', false),
+  // ...createConfig('components', 'components', false),
 ]
